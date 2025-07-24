@@ -35,7 +35,7 @@ jobs:
           git checkout main
           git rebase upstream/main
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
-          git push origin main
+          git push origin main --force-with-lease
 
       - name: Get latest release from upstream
         id: upstream_release
