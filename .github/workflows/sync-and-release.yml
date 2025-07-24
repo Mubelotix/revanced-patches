@@ -78,32 +78,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew :patches:buildAndroid clean
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install
-
-      # - name: Import GPG key
-      #   uses: crazy-max/ghaction-import-gpg@v6
-      #   with:
-      #     gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-      #     passphrase: ${{ secrets.GPG_PASSPHRASE }}
-      #     fingerprint: ${{ vars.GPG_FINGERPRINT }}
-
-      - name: Release
+      - name: Create patches.rvp
         if: steps.compare.outputs.new_release == 'true'
-        uses: cycjimmy/semantic-release-action@v4
-        id: release
+        run: |
+          jar cf patches.jar -C patches/build/classes/kotlin/main . -C patches/build/resources/main .
+          mv patches.jar patches.rvp
+    
+      - name: Create release on fork
+        if: steps.compare.outputs.new_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.upstream_release.outputs.tag_name }}
+          body: ${{ steps.upstream_release.outputs.release_body }}
+          files: |
+            patches.rvp
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Attest
-      #   if: steps.release.outputs.new_release_published == 'true'
-      #   uses: actions/attest-build-provenance@v2
-      #   with:
-      #     subject-name: 'ReVanced Patches ${{ steps.release.outputs.new_release_git_tag }}'
-      #     subject-path: patches/build/libs/patches-*.rvp
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
