@@ -76,7 +76,7 @@ jobs:
         if: steps.compare.outputs.new_release == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew :patches:buildAndroid clean
+        run: ./gradlew :patches:buildAndroid
 
       - name: Create patches.rvp
         if: steps.compare.outputs.new_release == 'true'
