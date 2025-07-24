@@ -1,0 +1,78 @@
+name: Sync with Upstream and Release
+
+on:
+  schedule:
+    - cron: '40 2 * * *'  # 04:40 Paris time (UTC+2 -> 02:40 UTC)
+  workflow_dispatch:  # Manual trigger for testing
+
+jobs:
+  sync_and_release:
+    runs-on: ubuntu-latest
+
+    env:
+      UPSTREAM_REPO: https://github.com/ReVanced/revanced-patches
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+    steps:
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+      - name: Checkout your fork
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Add upstream and fetch
+        run: |
+          git remote add upstream $UPSTREAM_REPO
+          git fetch upstream
+
+      - name: Rebase or merge from upstream
+        run: |
+          git checkout main
+          git rebase upstream/main || git merge upstream/main
+          git push origin main
+
+      - name: Get latest release from upstream
+        id: upstream_release
+        run: |
+          curl -s https://api.github.com/repos/ReVanced/revanced-patches/releases/latest > upstream_release.json
+          echo "tag_name=$(jq -r .tag_name upstream_release.json)" >> "$GITHUB_OUTPUT"
+          echo "release_body<<EOF" >> "$GITHUB_OUTPUT"
+          jq -r .body upstream_release.json >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Check if release exists on fork
+        id: fork_release
+        run: |
+          curl -s -H "Authorization: token $GH_TOKEN" https://api.github.com/repos/${{ github.repository }}/releases/latest > fork_release.json || echo "{}" > fork_release.json
+          echo "tag_name=$(jq -r .tag_name fork_release.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Compare and decide
+        id: compare
+        run: |
+          if [ "${{ steps.upstream_release.outputs.tag_name }}" != "${{ steps.fork_release.outputs.tag_name }}" ]; then
+            echo "new_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "new_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run build.sh if new release
+        if: steps.compare.outputs.new_release == 'true'
+        run: |
+          chmod +x ./build.sh
+          ./build.sh
+
+      - name: Create release on fork
+        if: steps.compare.outputs.new_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.upstream_release.outputs.tag_name }}
+          body: ${{ steps.upstream_release.outputs.release_body }}
+          files: |
+            ./dist/*  # Adjust to your actual build output
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
