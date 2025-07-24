@@ -33,7 +33,8 @@ jobs:
       - name: Rebase or merge from upstream
         run: |
           git checkout main
-          git rebase upstream/main || git merge upstream/main
+          git rebase upstream/main
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
           git push origin main
 
       - name: Get latest release from upstream
