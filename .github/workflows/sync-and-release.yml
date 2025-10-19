@@ -30,12 +30,12 @@ jobs:
           git remote add upstream $UPSTREAM_REPO
           git fetch upstream
 
-      - name: Rebase or merge from upstream
+      - name: Merge from upstream
         run: |
           git checkout main
-          git rebase upstream/main
+          git merge upstream/main -m "Merge upstream/main into main"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
-          git push origin main --force-with-lease
+          git push origin main
 
       - name: Get latest release from upstream
         id: upstream_release
